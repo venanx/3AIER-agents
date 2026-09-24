@@ -1,0 +1,16 @@
+# Default owner: documentation, prompts, memory, and routine project changes.
+* @venanx
+
+# Core agent runtime: tool execution, model calls, context assembly, and the
+# multi-iteration orchestration loop require the deepest technical review.
+/agent.py @rogerrendon
+
+# Web presentation layer and user-facing configuration.
+/app.py @venanx
+/agent.md @venanx
+/memory.md @venanx
+/README.md @venanx
+/requirements.txt @venanx
+
+# Repository automation and governance.
+/.github/ @rogerrendon
