@@ -127,3 +127,46 @@ def test_profile_host_mismatch_rejected_before_network(monkeypatch):
                        'publishUrl="evil.example" userName="x" userPWD="secret"/></publishData>')
     with pytest.raises(ValueError, match="does not belong"):
         canary.publish_router(10)
+
+
+def test_router_publication_polls_and_cleans_package(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ROUTER_URL", "https://test-router.azurewebsites.net")
+    monkeypatch.setenv("ROUTER_PUBLISH_PROFILE",
+                       '<publishData><publishProfile publishMethod="ZipDeploy" '
+                       'publishUrl="test-router.scm.azurewebsites.net:443" '
+                       'userName="test" userPWD="not-a-real-secret"/></publishData>')
+    seen = []
+
+    class Response(io.BytesIO):
+        headers = {"Location": "https://test-router.scm.azurewebsites.net/api/deployments/test"}
+
+    class Opener:
+        def open(self, request, timeout):
+            seen.append(request)
+            assert timeout <= 120
+            return Response(b'{"status":4}')
+
+    def build(kind, output, **kwargs):
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_bytes(b"zip")
+
+    monkeypatch.setattr(canary, "build", build)
+    monkeypatch.setattr(canary.urllib.request, "build_opener", lambda _: Opener())
+    monkeypatch.setattr(canary, "read", lambda _: (b'{"pct":100}', {}))
+    canary.publish_router(100)
+    assert len(seen) == 2
+    assert seen[0].method == "POST"
+    assert not list((tmp_path / ".canary-build").glob("*.zip"))
+
+
+def test_archive_rejects_unexpected_secret_file(tmp_path, monkeypatch):
+    archive = io.BytesIO()
+    with zipfile.ZipFile(archive, "w") as z:
+        for name in package_deploy.APP_FILES | {".env"}:
+            z.writestr(name, "not-a-secret")
+    monkeypatch.setattr(package_deploy.subprocess, "check_output",
+                        lambda args, **kwargs: "abc\n" if "rev-parse" in args else archive.getvalue())
+    with pytest.raises(ValueError, match="archive"):
+        package_deploy.build("app", tmp_path / "bad.zip")
+    assert not (tmp_path / "bad.zip").exists()

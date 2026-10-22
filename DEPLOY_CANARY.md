@@ -118,3 +118,19 @@ az webapp deploy -g rg-3aier-agents -n venanx-3aier-agents-router --type zip --s
 Confirme status 0% e redirecionamento para estável; peça aos clientes já
 redirecionados para reabrir a URL de entrada. Não declare “estável preservado”
 depois de uma tentativa de promoção.
+
+## Evidência da implantação inicial (21/10/2026, sem promoção)
+
+- Infraestrutura `canary-infra`: `Succeeded`; ambos os novos apps no F1 existente.
+- ZIPs produzidos pelo empacotador de fonte commitada e allowlist verificada.
+- Deploy manual dos apps canary/router: site iniciado com sucesso.
+- Router publicado em 0%; status HTTP 200; cookie canary forçado ao estável;
+  caminho/query preservados, cookie Secure e redirecionamento sem cache.
+- Configurações do canary copiadas do estável via ARM em memória; router sem
+  chave OpenAI. Nenhuma política SCM, RBAC ou proteção de branch foi alterada.
+- Workflow não habilitado; nenhuma promoção ou chamada de modelo real executada.
+- `python -m pytest -q`: **35 passed** (testes offline).
+- `python -m scripts.canary saude https://venanx-3aier-agents-canary.azurewebsites.net`:
+  passou; o mesmo comando para o estável passou.
+- Proteção main consultada: uma aprovação obrigatória e `enforce_admins=true`.
+  `DEPLOY_ESTRATEGIA` não configurada.
