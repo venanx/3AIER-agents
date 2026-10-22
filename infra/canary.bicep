@@ -23,4 +23,13 @@ resource apps 'Microsoft.Web/sites@2024-04-01' = [for role in ['canary', 'router
   }
 }]
 
+// Preserve securely configured settings (including the model key).
+module canarySettings 'canary-settings.bicep' = {
+  name: 'canary-visual-settings'
+  params: {
+    appName: apps[0].name
+    existingSettings: list('${apps[0].id}/config/appsettings', '2024-04-01').properties
+  }
+}
+
 output hostnames array = [for (role, i) in ['canary', 'router']: apps[i].properties.defaultHostName]

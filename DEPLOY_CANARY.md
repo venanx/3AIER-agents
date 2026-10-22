@@ -48,6 +48,23 @@ Router: `SCM_DO_BUILD_DURING_DEPLOYMENT=false`, startup `python router.py`,
 sem chave OpenAI. O Bicep já define startups e HTTPS/TLS.
 Configurações são mantidas separadamente da implantação de código.
 
+### Identificação visual
+
+Somente o canary usa `APP_RELEASE_CHANNEL=canary`: faixa e borda vermelhas
+com texto explícito **Canary — versão de teste** (texto branco em `#991b1b`,
+contraste superior a 4,5:1). O Bicep preserva os demais app settings.
+Sem essa variável (ou com outro valor), o layout original permanece intacto,
+inclusive quando o mesmo ZIP é promovido para o estável. Não configure a
+variável no estável nem no router. Para desenvolvimento local, defina-a no
+ambiente do processo; ela não é um segredo.
+
+Para atualizar apenas a identificação no canary existente, sem reaplicar a
+infraestrutura ou alterar o router:
+
+```powershell
+az webapp config appsettings set -g rg-3aier-agents -n venanx-3aier-agents-canary --settings APP_RELEASE_CHANNEL=canary --output none
+```
+
 Depois de **commitar** os arquivos revisados:
 
 ```powershell
