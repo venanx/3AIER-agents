@@ -10,6 +10,8 @@ A regra que vale a pena manter enquanto o projeto cresce:
 Rode com:  streamlit run app.py
 """
 
+import os
+
 import streamlit as st
 from streamlit.runtime import exists as st_runtime_ativo
 
@@ -25,6 +27,25 @@ if not st_runtime_ativo():
     raise SystemExit(1)
 
 st.set_page_config(page_title="Agente base", page_icon="🤖")
+if os.getenv("APP_RELEASE_CHANNEL", "").strip().lower() == "canary":
+    st.markdown(
+        """
+        <style>
+        [data-testid="stAppViewContainer"] { border-top: 6px solid #b91c1c; }
+        .canary-banner {
+            background: #991b1b;
+            color: #ffffff;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        </style>
+        <div class="canary-banner" role="note">
+            <strong>Canary</strong> — versão de teste
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 st.title("🤖 Agente base")
 
 # A chave é checada aqui. get_cliente() é preguiçoso justamente para que

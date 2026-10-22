@@ -1,0 +1,7 @@
+{
+  "pct": 0,
+  "urls": {
+    "estavel": "https://venanx-3aier-agents.azurewebsites.net",
+    "canary": "https://venanx-3aier-agents-canary.azurewebsites.net"
+  }
+}

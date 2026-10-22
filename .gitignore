@@ -1,0 +1,18 @@
+# Local secrets; keep only placeholder examples versioned.
+.env
+.env.*
+!.env.example
+
+# Python environments and generated files.
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Local deployment state and generated infrastructure output.
+.azure/
+/infra/main.json
+/infra/canary.json
+.canary-build/
+.pytest_cache/
+.pytest-work/

@@ -1,0 +1,72 @@
+name: Deploy Azure
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-producao
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.repository == 'venanx/3AIER-agents' && github.ref == 'refs/heads/main' && vars.DEPLOY_ESTRATEGIA == 'simple'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    env:
+      URL_ESTAVEL: https://venanx-3aier-agents.azurewebsites.net
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate the stable app publish profile
+        env:
+          AZURE_WEBAPP_PUBLISH_PROFILE: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+        run: |
+          python - <<'PY'
+          import os
+          from urllib.parse import urlsplit
+          import xml.etree.ElementTree as ET
+
+          raw = os.environ.get("AZURE_WEBAPP_PUBLISH_PROFILE", "")
+          if not raw:
+              raise ValueError("Missing AZURE_WEBAPP_PUBLISH_PROFILE")
+          profiles = ET.fromstring(raw)
+          profile = next(
+              (p for p in profiles.iter("publishProfile")
+               if p.get("publishMethod") == "ZipDeploy"),
+              None,
+          )
+          if profile is None:
+              raise ValueError("ZipDeploy publish profile required")
+          host = profile.get("publishUrl", "")
+          parsed = urlsplit("https://" + host)
+          if (parsed.hostname != "venanx-3aier-agents.scm.azurewebsites.net"
+                  or parsed.port not in (None, 443)
+                  or parsed.username or parsed.password
+                  or parsed.path not in ("", "/")
+                  or parsed.query or parsed.fragment):
+              raise ValueError("Publish profile does not belong to the stable app")
+          if not profile.get("userName") or not profile.get("userPWD"):
+              raise ValueError("Publish profile credentials missing")
+          PY
+
+      - name: Run offline tests and create a verified source package
+        run: |
+          python -m pip install -r requirements.txt -r requirements-dev.txt
+          python -m pytest -q
+          python -m scripts.package_deploy app .canary-build/app.zip
+
+      - name: Deploy stable app
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: venanx-3aier-agents
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: .canary-build/app.zip
+
+      - name: Verify stable app health
+        run: python -m scripts.canary saude "$URL_ESTAVEL"
