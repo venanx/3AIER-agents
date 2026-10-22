@@ -151,3 +151,17 @@ depois de uma tentativa de promoção.
   passou; o mesmo comando para o estável passou.
 - Proteção main consultada: uma aprovação obrigatória e `enforce_admins=true`.
   `DEPLOY_ESTRATEGIA` não configurada.
+
+## Identificação vermelha publicada (21/10/2026, sem promoção)
+
+- Código `f8b264d`, ZIP de allowlist verificada; somente o app canary recebeu
+  `APP_RELEASE_CHANNEL=canary` e nova publicação.
+- Primeira tentativa expirou no gateway e o build ficou parado; reinício
+  somente do canary encerrou a tentativa com falha. Nova publicação assíncrona
+  do mesmo ZIP concluiu com status 4, ID `d22b21f5-841d-451f-8d83-fd1812b09a10`.
+- Payload real da interface Streamlit verificado via WebSocket: banner Canary
+  e fundo `#991b1b` presentes no canary, ausentes no estável. Sem chamada ao modelo.
+- Health dos dois apps passou; router permaneceu em 0%. Estável manteve
+  deployment `ad177201-5bb9-4dc5-91f0-9497a9157703`, sem flag de canary.
+- Testes offline: **41 passed**; validação oficial Bicep/Azure: **OVERALL PASS**.
+  Nenhuma reaplicação de infraestrutura, promoção, alteração de SKU ou proteção.
