@@ -152,3 +152,8 @@ Para você saber o que falta quando precisar:
 
 Tudo isso é infraestrutura em volta das ~35 linhas do `responder()`. O loop não
 muda.
+# Deploy canary
+
+Consulte [DEPLOY_CANARY.md](DEPLOY_CANARY.md) para o canary no plano Free F1,
+testes offline, empacotamento sem segredos e recuperação. A automação só pode
+ser habilitada após revisão externa e integração aprovada na main.

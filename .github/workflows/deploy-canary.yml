@@ -1,0 +1,104 @@
+name: Deploy Canary
+
+# Intentionally manual only. Do not enable until external review and main integration.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-producao
+  cancel-in-progress: false
+
+jobs:
+  canary:
+    if: github.repository == 'venanx/3AIER-agents' && github.ref == 'refs/heads/main' && vars.DEPLOY_ESTRATEGIA == 'canary'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: production
+    env:
+      ROUTER_URL: https://venanx-3aier-agents-router.azurewebsites.net
+      URL_ESTAVEL: https://venanx-3aier-agents.azurewebsites.net
+      URL_CANARY: https://venanx-3aier-agents-canary.azurewebsites.net
+      CANARY_PASSOS: ${{ vars.CANARY_PASSOS || '10 50' }}
+      CANARY_ESPERA_MIN: ${{ vars.CANARY_ESPERA_MIN || '5' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validate configuration before changing traffic
+        env:
+          STABLE_PROFILE: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          CANARY_PROFILE: ${{ secrets.AZURE_CANARY_PUBLISH_PROFILE }}
+          ROUTER_PROFILE: ${{ secrets.AZURE_ROUTER_PUBLISH_PROFILE }}
+        run: |
+          python - <<'PY'
+          import os
+          from scripts.canary import integer
+          steps = os.environ["CANARY_PASSOS"].split()
+          if not steps:
+              raise ValueError("CANARY_PASSOS cannot be empty")
+          values = [integer(v, 1, 100) for v in steps]
+          if values != sorted(set(values)):
+              raise ValueError("CANARY_PASSOS must be strictly increasing")
+          integer(os.environ["CANARY_ESPERA_MIN"], 1, 15)
+          if not all(os.environ.get(k) for k in ("STABLE_PROFILE", "CANARY_PROFILE", "ROUTER_PROFILE")):
+              raise ValueError("Missing deployment secrets")
+          PY
+      - name: Offline tests and verified tracked-source package
+        run: |
+          python -m pip install -r requirements.txt -r requirements-dev.txt
+          python -m pytest -q
+          python -m scripts.package_deploy app .canary-build/app.zip
+      - name: Require healthy stable before rollout
+        run: bash .github/scripts/canary.sh saude "$URL_ESTAVEL"
+      - name: Route new visitors to stable before replacing candidate
+        env:
+          ROUTER_PUBLISH_PROFILE: ${{ secrets.AZURE_ROUTER_PUBLISH_PROFILE }}
+        run: bash .github/scripts/canary.sh publicar-router 0
+      - name: Deploy candidate
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: venanx-3aier-agents-canary
+          publish-profile: ${{ secrets.AZURE_CANARY_PUBLISH_PROFILE }}
+          package: .canary-build/app.zip
+      - name: Check candidate
+        run: bash .github/scripts/canary.sh saude "$URL_CANARY"
+      - name: Ramp traffic
+        id: ramp
+        env:
+          ROUTER_PUBLISH_PROFILE: ${{ secrets.AZURE_ROUTER_PUBLISH_PROFILE }}
+        run: |
+          for pct in $CANARY_PASSOS; do
+            bash .github/scripts/canary.sh publicar-router "$pct"
+            bash .github/scripts/canary.sh observar "$URL_CANARY" "$CANARY_ESPERA_MIN"
+            bash .github/scripts/canary.sh saude "$URL_ESTAVEL" 1
+          done
+      - name: Promote same tested artifact
+        id: promote
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: venanx-3aier-agents
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: .canary-build/app.zip
+      - name: Check stable and close canary
+        env:
+          ROUTER_PUBLISH_PROFILE: ${{ secrets.AZURE_ROUTER_PUBLISH_PROFILE }}
+        run: |
+          bash .github/scripts/canary.sh saude "$URL_ESTAVEL"
+          bash .github/scripts/canary.sh publicar-router 0
+      - name: Failure recovery (not stable artifact restoration)
+        if: failure() && steps.ramp.outcome != 'skipped'
+        env:
+          ROUTER_PUBLISH_PROFILE: ${{ secrets.AZURE_ROUTER_PUBLISH_PROFILE }}
+          PROMOTION_OUTCOME: ${{ steps.promote.outcome }}
+        run: |
+          if [[ "$PROMOTION_OUTCOME" == "skipped" ]]; then
+            bash .github/scripts/canary.sh publicar-router 0
+          else
+            echo "::error::Stable may be modified. Keeping healthy candidate at 100%; operator must restore a known-good stable artifact."
+            bash .github/scripts/canary.sh saude "$URL_CANARY"
+            bash .github/scripts/canary.sh publicar-router 100
+          fi
