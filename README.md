@@ -152,8 +152,10 @@ Para você saber o que falta quando precisar:
 
 Tudo isso é infraestrutura em volta das ~35 linhas do `responder()`. O loop não
 muda.
-# Deploy canary
+# Deploy no Azure
 
-Consulte [DEPLOY_CANARY.md](DEPLOY_CANARY.md) para o canary no plano Free F1,
-testes offline, empacotamento sem segredos e recuperação. A automação só pode
-ser habilitada após revisão externa e integração aprovada na main.
+Consulte [DEPLOY_AZURE.md](DEPLOY_AZURE.md) para publicação simples do app
+estável ou [DEPLOY_CANARY.md](DEPLOY_CANARY.md) para a implantação canary no
+plano Free F1. Ambos usam pacotes verificados sem segredos; a automação exige
+revisão, configuração de aprovação no environment `production` e ativação
+explícita da estratégia correspondente.

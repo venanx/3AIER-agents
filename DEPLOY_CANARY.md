@@ -82,19 +82,28 @@ worktree**: `.env`, venv, arquivos locais, perfis e tokens não podem ir ao Azur
 Mudanças não commitadas não são publicadas. `--ref <sha-conhecido>` permite
 gerar artefato antigo para restauração. Não crie pacotes com segredos.
 
-## Automação: permanece desligada até revisão externa
+## Automação: estratégias mutuamente exclusivas e opt-in
 
-`.github/workflows/deploy-canary.yml` é apenas `workflow_dispatch`,
-restrito ao repositório `venanx/3AIER-agents`, branch `main`, environment
-`production` e variável `DEPLOY_ESTRATEGIA=canary`.
-Não configure essa variável antes da revisão externa e integração aprovada.
-Configure revisores obrigatórios do environment antes de habilitar; não
-reduza proteção da main. Nenhum push automático foi ativado.
+O deploy simples da versão estável está documentado em `DEPLOY_AZURE.md` e
+implementado em `.github/workflows/deploy-azure.yml`. Ele pode ser disparado
+por push em `main` ou manualmente, mas o job só executa no repositório
+`venanx/3AIER-agents`, na branch `main`, com
+`DEPLOY_ESTRATEGIA=simple` e após aprovação do environment `production`.
+Enquanto a variável estiver ausente (estado atual), os eventos não publicam.
 
-Após aprovação, um administrador pode configurar os secrets:
-`AZURE_WEBAPP_PUBLISH_PROFILE`, `AZURE_CANARY_PUBLISH_PROFILE`,
-`AZURE_ROUTER_PUBLISH_PROFILE`. Perfis são credenciais: somente GitHub
-Secrets, nunca arquivos, argumentos ou saída de terminal.
+`.github/workflows/deploy-canary.yml` continua apenas `workflow_dispatch`,
+restrito ao mesmo repositório, branch e environment, e exige
+`DEPLOY_ESTRATEGIA=canary`. As estratégias `simple` e `canary` são
+mutuamente exclusivas. Não configure nenhuma das duas antes da revisão externa
+e integração aprovada. Configure revisores obrigatórios em `production` antes
+de habilitar qualquer estratégia; sem essa regra, o GitHub não solicita
+aprovação do environment. Mantenha a proteção da `main`.
+
+Após aprovação, um administrador pode configurar `AZURE_WEBAPP_PUBLISH_PROFILE`
+para o app estável (compartilhado pelos workflows simples e canary), além de
+`AZURE_CANARY_PUBLISH_PROFILE` e `AZURE_ROUTER_PUBLISH_PROFILE` para o canary.
+Perfis são credenciais: somente GitHub Secrets, nunca arquivos, argumentos ou
+saída de terminal.
 Se a política SCM negar autenticação básica, **não** a altere sem aprovação
 do administrador; use deploy manual autenticado via Azure CLI enquanto isso.
 Este workflow de publish profiles requer SCM basic auth já autorizado.
