@@ -1,4 +1,4 @@
-# Agente base — template
+# Agente base — com deploy
 
 Esse projeto tem a finalidade de ser um esqueletobase para nossos agentes de IA em Python.
 
